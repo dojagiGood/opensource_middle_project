@@ -1,0 +1,154 @@
+#!/bin/bash
+
+echo "--------------------------"
+echo "User Name: 윤소현"
+echo "Student Number: 12182562"
+
+
+
+
+
+    echo "[ MENU ]"
+    echo "1. Get the data of the movie identified by a specific 'movie id' from 'u.item'"
+    echo "2. Get the data of action genre movies from 'u.item'"
+    echo "3. Get the average 'rating’ of the movie identified by specific 'movie id' from 'u.data’"
+    echo "4. Delete the ‘IMDb URL’ from ‘u.item’"
+    echo "5. Get the data about users from 'u.user’"
+    echo "6. Modify the format of 'release date' in 'u.item’"
+    echo "7. Get the data of movies rated by a specific 'user id' from 'u.data'"
+    echo "8. Get the average 'rating' of movies rated by users with 'age' between 20 and 29 and 'occupation' as 'programmer'"
+    echo "9. Exit"
+    echo "--------------------------"
+
+    while true; do
+
+    # 사용자 입력
+    read -p "Enter your choice [ 1-9 ] " choice
+
+    case $choice in
+        1)
+        
+	    # 영화 아이디 입력 
+            read -p "Please enter 'movie id'(1~1682):" movie_id
+
+            
+            sed -n "${movie_id}p" $1
+            ;;
+        2)
+           echo -n "Do you want to get the data of ‘action’ genre movies from 'u.item’?(y/n): "
+    read answer
+    if [ "$answer" == "y" ]; then
+      # 액션 장르일 경우 7번째 열에 1 표시되있음
+      awk -F'|' '$7 == "1" {print $1, $2}' u.item | head -10
+    fi
+
+            ;;
+        3)
+            
+        
+    read -p "Please enter the 'movie id' (1~1682): " movie_id
+
+  
+    if [ "$movie_id" -ge 1 ] && [ "$movie_id" -le 1682 ]; then
+       
+        average_rating=$(awk -F'\t' -v movie_id="$movie_id" '$2 == movie_id {sum+=$3; count+=1} END {if (count > 0) print sum/count}' u.data)
+
+        
+        formatted_rating=$(printf "%.5f" "$average_rating")
+
+       
+        echo "average rating of $movie_id: $formatted_rating"
+    else
+        echo "Invalid 'movie id'. Please enter a valid 'movie id' in the range of 1 to 1682."
+    fi
+
+
+	    ;;
+        4)
+            
+	    
+    read -p "Do you want to delete the 'IMDb URL' from 'u.item'?(y/n): " imdbChoice
+
+    if [ "$imdbChoice" == "y" ]; then
+        
+        awk -F'|' '{ $5=""; print }' u.item | head -10
+    fi
+            ;;
+        5)
+           
+	    read -p "Do you want to get the data about users from 'u.user'?(y/n): " userChoice
+
+    if [ "$userChoice" == "y" ]; then
+       
+        awk -F'|' '{printf "user %s is %s years old %s %s\n", $1, $2, $3, $4}' u.user | head -10
+    fi
+            ;;
+        6)
+           
+    read -p "Do you want to Modify the format of 'release date' in 'u.item'?(y/n): " modifyChoice
+
+    if [ "$modifyChoice" == "y" ]; then
+       
+        awk -F'|' 'BEGIN {
+            months["Jan"] = "01"; months["Feb"] = "02"; months["Mar"] = "03";
+            months["Apr"] = "04"; months["May"] = "05"; months["Jun"] = "06";
+            months["Jul"] = "07"; months["Aug"] = "08"; months["Sep"] = "09";
+            months["Oct"] = "10"; months["Nov"] = "11"; months["Dec"] = "12";
+        }
+        {
+            # Split the release date field using '-' as the delimiter
+            split($3, date, "-");
+            # Reformat the release date and update the 3rd column
+            $3 = date[3] months[date[2]] date[1];
+            # Print the line
+            print $0;
+        }' u.item | tail -10
+    fi
+            ;;
+        7)
+    read -p "Please enter the 'user id'(1~943): " user_id
+
+        if [ "$user_id" -ge 1 ] && [ "$user_id" -le 943 ]; then
+            # 사용자가 평가한 영화 아이디 추출,정렬
+            rated_movies=$(awk -F'\t' -v uid="$user_id" '$1 == uid {print $2}' u.data | sort -n)
+
+            echo "$rated_movies" | tr '\n' '|'
+            echo
+            # movie id와 movie title 매칭해서 출력
+            echo "$rated_movies" | head -10 | while read movie_id; do
+                # u.item에서 movie id에 해당하는 영화제목 찾아서 출력
+                movie_title=$(awk -F'|' -v mid="$movie_id" '$1 == mid {print $2}' u.item)
+                echo "$movie_id|$movie_title"
+            done
+        else
+            echo "Invalid 'user id'. Please enter a 'user id' in the range of 1 to 943."
+        fi 
+
+        
+
+            ;;
+        8)
+          
+	     echo -n "Do you want to get the average 'rating' of movies rated by users with 'age' between 20 and 29 and 'occupation' as 'programmer'?(y/n): "
+    read answer
+    if [ "$answer" == "y" ]; then
+        
+        awk -F'|' '($3 == "M" || $3 == "F") && $2 >= 20 && $2 <= 29 && $4 == "programmer" {print $1}' u.user > programmers_20s.txt
+
+        #평점계산
+        awk -F'\t' 'NR==FNR {ids[$1]=1; next} $1 in ids {sum[$2]+=$3; count[$2]++} END {for (movie in sum) printf "%d %0.5f\n", movie, sum[movie]/count[movie] + 0.0}' programmers_20s.txt u.data | sort -n -k1
+
+     
+        rm programmers_20s.txt
+    fi
+            ;;
+        9)
+            
+	    echo "Bye!"
+            exit 0
+            ;;
+
+    esac
+
+done
+
